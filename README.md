@@ -222,6 +222,7 @@ gy -t '.github.workflows.build.jobs.test.steps[0]' ci.yml
 - [ ] **Multiple patterns** - `gy 'path1,path2,path3'`
 - [ ] **JSON output** - `gy --json` for cross-format workflows
 - [ ] **Named lists** - `gy '@name:Deploy web application stack' ansible.yml`
+- [ ] **Key/Value** - Return any paths matching a key and/or value.
 
 ## Contributing
 
