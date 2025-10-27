@@ -13,7 +13,7 @@ A fast, lightweight command-line tool for extracting, exploring, and navigating 
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/gy
+git clone https://github.com/tsettle/gy
 cd gy
 go build gy.go
 sudo cp gy /usr/local/bin/
@@ -21,7 +21,7 @@ sudo cp gy /usr/local/bin/
 
 Or install directly:
 ```bash
-go install github.com/yourname/gy@latest
+go install github.com/tsettle/gy@latest
 ```
 
 ## Quick Start

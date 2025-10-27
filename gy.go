@@ -1,3 +1,10 @@
+// gy - YAML path extractor and lister
+// Copyright (c) 2025 Troy Settle
+// Licensed under the MIT License
+//
+// A fast, lightweight tool for extracting and exploring YAML documents.
+// Preserves types and structure without YAML→JSON→YAML conversions.
+
 package main
 
 import (
