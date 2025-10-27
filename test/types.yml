@@ -1,0 +1,55 @@
+---
+strings:
+  plain: hello world
+  quoted: "hello world"
+  single: 'hello world'
+  multiline: |
+    This is a multi-line
+    string that should be
+    preserved properly
+
+numbers:
+  integer: 42
+  float: 3.14159
+  negative: -100
+  scientific: 1.23e-4
+  octal: 0o755
+  hex: 0xFF
+
+booleans:
+  true_value: true
+  false_value: false
+  yes_value: yes
+  no_value: no
+
+nulls:
+  null_value: null
+  tilde_value: ~
+  empty_value:
+
+special_keys:
+  1: "numeric key"
+  2: "another numeric"
+  "key:with:colons": "value"
+  "key.with.dots": "value"
+
+lists:
+  simple:
+    - one
+    - two
+    - three
+  nested:
+    - - a
+      - b
+    - - c
+      - d
+  mixed:
+    - string
+    - 123
+    - true
+    - null
+
+timestamps:
+  canonical: 2025-10-27T14:30:00Z
+  iso8601: 2025-10-27T14:30:00.123456Z
+  date: 2025-10-27

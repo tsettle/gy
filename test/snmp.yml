@@ -1,0 +1,37 @@
+---
+modules:
+  if_mib:
+    walk:
+      - 1.3.6.1.2.1.2.2.1.1
+      - 1.3.6.1.2.1.2.2.1.2
+      - 1.3.6.1.2.1.2.2.1.5
+    metrics:
+      - name: ifInOctets
+        oid: 1.3.6.1.2.1.2.1.10
+        type: counter
+      - name: ifOutOctets
+        oid: 1.3.6.1.2.1.2.1.16
+        type: counter
+    lookups:
+      - source_indexes:
+          - ifIndex
+        lookup: ifName
+
+  system_mib:
+    walk:
+      - 1.3.6.1.2.1.1
+    metrics:
+      - name: sysUpTime
+        oid: 1.3.6.1.2.1.1.3
+        type: gauge
+
+  bgp_mib:
+    walk:
+      - 1.3.6.1.2.1.15.3
+    metrics:
+      - name: bgpPeerState
+        oid: 1.3.6.1.2.1.15.3.1.2
+        type: gauge
+      - name: bgpPeerInUpdates
+        oid: 1.3.6.1.2.1.15.3.1.10
+        type: counter
