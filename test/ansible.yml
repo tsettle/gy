@@ -1,0 +1,198 @@
+---
+- name: Deploy web application stack
+  hosts: webservers
+  become: true
+  vars:
+    app_name: myapp
+    app_version: 2.1.0
+    app_port: 8080
+    db_host: db.internal
+    db_port: 5432
+    nginx_worker_processes: 4
+    ssl_cert_path: /etc/ssl/certs
+    deploy_user: deploy
+    app_env: production
+  
+  vars_files:
+    - vars/secrets.yml
+    - vars/{{ ansible_distribution }}.yml
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install system dependencies
+      package:
+        name:
+          - python3
+          - python3-pip
+          - git
+          - curl
+        state: present
+
+  roles:
+    - role: common
+      tags: ['common', 'base']
+    
+    - role: nginx
+      vars:
+        nginx_sites:
+          - name: "{{ app_name }}"
+            listen: 80
+            server_name: example.com www.example.com
+            locations:
+              - path: /
+                proxy_pass: "http://localhost:{{ app_port }}"
+                proxy_headers:
+                  - "Host $host"
+                  - "X-Real-IP $remote_addr"
+      tags: ['nginx', 'web']
+    
+    - role: postgresql
+      vars:
+        postgresql_version: 14
+        postgresql_databases:
+          - name: "{{ app_name }}_{{ app_env }}"
+            owner: "{{ app_name }}"
+        postgresql_users:
+          - name: "{{ app_name }}"
+            password: "{{ db_password }}"
+            priv: "ALL"
+      tags: ['database', 'postgresql']
+      when: inventory_hostname in groups['dbservers']
+
+  tasks:
+    - name: Create application user
+      user:
+        name: "{{ deploy_user }}"
+        shell: /bin/bash
+        groups: www-data
+        append: yes
+        create_home: yes
+
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: '0755'
+      loop:
+        - /opt/{{ app_name }}
+        - /opt/{{ app_name }}/releases
+        - /opt/{{ app_name }}/shared
+        - /opt/{{ app_name }}/shared/logs
+        - /opt/{{ app_name }}/shared/config
+
+    - name: Clone application repository
+      git:
+        repo: https://github.com/company/{{ app_name }}.git
+        dest: /opt/{{ app_name }}/releases/{{ app_version }}
+        version: "v{{ app_version }}"
+        force: yes
+      become_user: "{{ deploy_user }}"
+      notify:
+        - restart application
+        - reload nginx
+
+    - name: Install Python dependencies
+      pip:
+        requirements: /opt/{{ app_name }}/releases/{{ app_version }}/requirements.txt
+        virtualenv: /opt/{{ app_name }}/venv
+        virtualenv_python: python3.9
+      become_user: "{{ deploy_user }}"
+
+    - name: Template application config
+      template:
+        src: templates/app_config.j2
+        dest: /opt/{{ app_name }}/shared/config/settings.py
+        owner: "{{ deploy_user }}"
+        mode: '0640'
+      notify: restart application
+
+    - name: Create systemd service
+      template:
+        src: templates/systemd.service.j2
+        dest: /etc/systemd/system/{{ app_name }}.service
+        mode: '0644'
+      notify:
+        - reload systemd
+        - restart application
+
+    - name: Enable and start application service
+      systemd:
+        name: "{{ app_name }}"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Configure firewall rules
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - 22
+        - 80
+        - 443
+        - "{{ app_port }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Setup log rotation
+      template:
+        src: templates/logrotate.j2
+        dest: /etc/logrotate.d/{{ app_name }}
+        mode: '0644'
+
+    - name: Create database backup cron job
+      cron:
+        name: "Backup {{ app_name }} database"
+        minute: "0"
+        hour: "2"
+        job: "/usr/local/bin/backup-db.sh {{ app_name }}"
+        user: postgres
+      when: inventory_hostname in groups['dbservers']
+
+  post_tasks:
+    - name: Run database migrations
+      command:
+        cmd: /opt/{{ app_name }}/venv/bin/python manage.py migrate
+        chdir: /opt/{{ app_name }}/releases/{{ app_version }}
+      become_user: "{{ deploy_user }}"
+      run_once: true
+
+    - name: Clear application cache
+      command: /opt/{{ app_name }}/venv/bin/python manage.py clear_cache
+      become_user: "{{ deploy_user }}"
+      ignore_errors: yes
+
+    - name: Verify application health
+      uri:
+        url: "http://localhost:{{ app_port }}/health"
+        status_code: 200
+        timeout: 30
+      retries: 5
+      delay: 10
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart application
+      systemd:
+        name: "{{ app_name }}"
+        state: restarted
+
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
