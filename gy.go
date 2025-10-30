@@ -155,7 +155,6 @@ func wrapInPath(root *yaml.Node, pattern string, extracted *yaml.Node) *yaml.Nod
 }
 
 func extractPath(node *yaml.Node, pattern string) *yaml.Node {
-	originalPattern := pattern
 	if len(pattern) > 0 && pattern[0] == '.' {
 		pattern = pattern[1:]
 	}
