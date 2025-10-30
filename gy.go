@@ -40,14 +40,32 @@ func main() {
 	maxDepth := *depth
 
 	args := flag.Args()
-	if len(args) < 1 {
-		fmt.Println("Usage: gy [--trim|-t] [--list|-l] [--depth N] <pattern> [filename]")
+	if len(args) > 2 {
+		fmt.Println("Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]")
 		os.Exit(1)
 	}
 
-	pattern := args[0]
-	filename := ""
-	if len(args) > 1 {
+	// Parse pattern and filename
+	var pattern, filename string
+	switch len(args) {
+	case 0:
+		// No args - read from stdin, no pattern (just round-trip)
+		pattern = "."
+		filename = ""
+	case 1:
+		// One arg - could be pattern or filename
+		if _, err := os.Stat(args[0]); err == nil {
+			// File exists, treat as filename with no pattern
+			filename = args[0]
+			pattern = "."
+		} else {
+			// Treat as pattern, read from stdin
+			pattern = args[0]
+			filename = ""
+		}
+	case 2:
+		// Two args - pattern and filename
+		pattern = args[0]
 		filename = args[1]
 	}
 
