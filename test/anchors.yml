@@ -1,0 +1,30 @@
+---
+defaults: &defaults
+  adapter: postgres
+  host: localhost
+  pool: 5
+
+development:
+  <<: *defaults
+  database: myapp_development
+
+test:
+  <<: *defaults
+  database: myapp_test
+
+production:
+  <<: *defaults
+  database: myapp_production
+  pool: 25
+
+regions: &regions
+  - us-east-1
+  - us-west-2
+  - eu-west-1
+
+primary_region: &primary us-east-1
+
+deployment:
+  active_regions: *regions
+  primary: *primary
+  failover: *primary

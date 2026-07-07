@@ -31,7 +31,7 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Println("gy version 0.0.3")
+		fmt.Println("gy version 0.0.5")
 		os.Exit(0)
 	}
 
@@ -78,20 +78,22 @@ func main() {
 		input, err = io.ReadAll(os.Stdin)
 	}
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Parse YAML
 	var node yaml.Node
 	err = yaml.Unmarshal(input, &node)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Error: failed to parse YAML: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Extract the target node
 	extracted := extractPath(&node, pattern)
 	if extracted == nil {
-		fmt.Printf("Path not found: %s\n", pattern)
+		fmt.Fprintf(os.Stderr, "Path not found: %s\n", pattern)
 		os.Exit(1)
 	}
 

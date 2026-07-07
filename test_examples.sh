@@ -1,5 +1,8 @@
 #!/bin/bash
-# Demo script showing gy capabilities with test files
+# Demo script showing gy capabilities with test files.
+# This is a showcase, not a test - it prints output but asserts nothing.
+# The real, assertion-backed test suite is `go test ./...` (see gy_internal_test.go
+# and cli_test.go).
 
 set -e
 

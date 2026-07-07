@@ -1,0 +1,57 @@
+---
+replicaCount: 3
+
+image:
+  repository: myregistry.io/webapp
+  pullPolicy: IfNotPresent
+  tag: "2.4.1"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: api.example.com
+      paths:
+        - path: /v1
+          pathType: Prefix
+  tls:
+    - secretName: app-tls
+      hosts:
+        - app.example.com
+        - api.example.com
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+env:
+  - name: LOG_LEVEL
+    value: info
+  - name: FEATURE_FLAGS
+    value: "beta-ui,new-search"

@@ -225,6 +225,14 @@ gy -t '.github.workflows.build.jobs.test.steps[0]' ci.yml
 - [ ] **Key/Value** - Return any paths matching a key and/or value.
 - [ ] **Broken tests** - Fix broken tests then create more broken tests to fix.
 
+## Testing
+
+```bash
+go test ./...
+```
+
+Unit tests (`gy_internal_test.go`) exercise path parsing and node extraction directly. End-to-end tests (`cli_test.go`) build the binary and run it as a subprocess against the fixtures in `test/`, asserting exact stdout/stderr/exit codes. `test_examples.sh` is a separate showcase script for manually eyeballing output - it isn't part of the assertion-backed suite.
+
 ## Contributing
 
 Contributions welcome! Please feel free to submit issues or pull requests.
