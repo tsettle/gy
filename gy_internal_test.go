@@ -199,15 +199,15 @@ func TestWrapInPath(t *testing.T) {
 		}
 	})
 
-	t.Run("array index reconstruction pads preceding elements with null", func(t *testing.T) {
+	t.Run("array index reconstruction drops the index, keeps only the match", func(t *testing.T) {
 		extracted := extractPath(root, "services[1].name")
 		wrapped := wrapInPath(root, "services[1].name", extracted)
 		got := marshal(t, wrapped)
-		// Documents current behavior: gy fabricates `null` placeholders for
-		// skipped indices when reconstructing the ancestor path. This means
-		// the output implies two real null entries exist at services[0],
-		// which they don't in the source document.
-		want := "services:\n    - null\n    - name: api\n"
+		// services[1] is "api", but wrapInPath doesn't reconstruct services[0]
+		// (unknown value) - it emits a single-element array with just the
+		// match rather than fabricating a `null` placeholder for the skipped
+		// index, which would misrepresent the source document.
+		want := "services:\n    - name: api\n"
 		if got != want {
 			t.Errorf("wrapInPath(services[1].name) =\n%s\nwant:\n%s", got, want)
 		}

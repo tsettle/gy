@@ -191,14 +191,17 @@ func TestCLIFlagsAndVersion(t *testing.T) {
 }
 
 func TestCLIErrorHandling(t *testing.T) {
-	t.Run("more than two positional args prints usage and exits 1", func(t *testing.T) {
+	t.Run("more than two positional args prints usage on stderr and exits 1", func(t *testing.T) {
 		res := runCLI(t, "", "a", "b", "c")
 		if res.exitCode != 1 {
 			t.Errorf("exit code = %d, want 1", res.exitCode)
 		}
+		if res.stdout != "" {
+			t.Errorf("stdout = %q, want empty (usage error belongs on stderr)", res.stdout)
+		}
 		want := "Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]\n"
-		if res.stdout != want {
-			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		if res.stderr != want {
+			t.Errorf("stderr = %q, want %q", res.stderr, want)
 		}
 	})
 

@@ -45,7 +45,7 @@ func main() {
 
 	args := flag.Args()
 	if len(args) > 2 {
-		fmt.Println("Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]")
+		fmt.Fprintln(os.Stderr, "Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]")
 		os.Exit(1)
 	}
 
@@ -134,30 +134,19 @@ func wrapInPath(root *yaml.Node, pattern string, extracted *yaml.Node) *yaml.Nod
 
 		// Handle array indexes like "[0]"
 		if len(part) > 0 && part[0] == '[' && part[len(part)-1] == ']' {
-			// For arrays, create a sequence node
-			seqNode := &yaml.Node{
-				Kind: yaml.SequenceNode,
-			}
-
-			// Parse the index to find where to place our extracted node
+			// Wrap in a single-element sequence containing just the match.
+			// The original index isn't reconstructed - gy doesn't know what
+			// the skipped elements were, so padding with `null` would imply
+			// entries that don't exist in the source document.
 			indexStr := part[1 : len(part)-1]
-			index, err := strconv.Atoi(indexStr)
-			if err == nil {
-				// Create empty nodes before the index
-				for j := 0; j < index; j++ {
-					seqNode.Content = append(seqNode.Content, &yaml.Node{
-						Kind:  yaml.ScalarNode,
-						Value: "null",
-						Tag:   "!!null",
-					})
-				}
-				// Add our extracted node at the correct position
-				seqNode.Content = append(seqNode.Content, current)
-			} else {
+			if _, err := strconv.Atoi(indexStr); err != nil {
 				// If we can't parse the index, just return the extracted node
 				return extracted
 			}
-			current = seqNode
+			current = &yaml.Node{
+				Kind:    yaml.SequenceNode,
+				Content: []*yaml.Node{current},
+			}
 		} else {
 			// Mapping node - wrap in map
 			mapNode := &yaml.Node{
