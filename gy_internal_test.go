@@ -275,14 +275,39 @@ func TestForceStyle(t *testing.T) {
 		}
 	})
 
-	t.Run("forces block style throughout a flow-style tree", func(t *testing.T) {
+	t.Run("forces block style throughout a flow-style tree, dropping JSON's forced quoting", func(t *testing.T) {
 		jsonRoot := mustParse(t, `{"host": "localhost", "port": 5432}`)
 		target := extractPath(jsonRoot, ".")
 		forceStyle(target, 0)
 		got := marshal(t, target)
-		want := "\"host\": \"localhost\"\n\"port\": 5432\n"
+		// JSON requires every string to be quoted, but that's a JSON syntax
+		// rule, not part of the value - clean block YAML shouldn't drag the
+		// quotes along. Values that still need quoting for safety (handled
+		// by yaml.Marshal's own auto-style analysis) are unaffected.
+		want := "host: localhost\nport: 5432\n"
 		if got != want {
 			t.Errorf("forceStyle(block) =\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	t.Run("clearing scalar style does not change how values round-trip", func(t *testing.T) {
+		// "yes"/"no" are booleans under strict YAML 1.1 but plain strings
+		// under this library's resolution - confirm forceStyle's un-quoting
+		// doesn't flip a quoted string into a different type on re-parse.
+		jsonRoot := mustParse(t, `{"flag": "yes", "count": "123"}`)
+		target := extractPath(jsonRoot, ".")
+		forceStyle(target, 0)
+		out := marshal(t, target)
+
+		var reparsed map[string]interface{}
+		if err := yaml.Unmarshal([]byte(out), &reparsed); err != nil {
+			t.Fatalf("failed to reparse forceStyle output: %v", err)
+		}
+		if v, ok := reparsed["flag"].(string); !ok || v != "yes" {
+			t.Errorf("flag round-tripped as %T(%v), want string \"yes\"", reparsed["flag"], reparsed["flag"])
+		}
+		if v, ok := reparsed["count"].(string); !ok || v != "123" {
+			t.Errorf("count round-tripped as %T(%v), want string \"123\"", reparsed["count"], reparsed["count"])
 		}
 	})
 

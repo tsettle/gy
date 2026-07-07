@@ -224,14 +224,19 @@ func findMapKey(mapNode *yaml.Node, key string) *yaml.Node {
 
 // forceStyle recursively overrides the flow/block style of every mapping and
 // sequence node in the tree, letting --flow/--block override whatever style
-// wrapInPath inherited from the source document. Scalar nodes are left
-// alone; yaml.Marshal already quotes them correctly for their context.
+// wrapInPath inherited from the source document. Scalar nodes have their
+// explicit quote style cleared too (e.g. JSON's mandatory double quotes),
+// so yaml.Marshal picks the cleanest safe representation for the target
+// style instead of dragging along quoting artifacts from the source format.
 func forceStyle(node *yaml.Node, style yaml.Style) {
 	if node == nil {
 		return
 	}
-	if node.Kind == yaml.MappingNode || node.Kind == yaml.SequenceNode {
+	switch node.Kind {
+	case yaml.MappingNode, yaml.SequenceNode:
 		node.Style = style
+	case yaml.ScalarNode:
+		node.Style = 0
 	}
 	for _, child := range node.Content {
 		forceStyle(child, style)

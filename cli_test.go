@@ -173,13 +173,13 @@ func TestCLIFlowAndBlockStyle(t *testing.T) {
 		}
 	})
 
-	t.Run("--block forces block-style output on a JSON source", func(t *testing.T) {
+	t.Run("--block forces clean block-style output on a JSON source, no leftover quotes", func(t *testing.T) {
 		res := runCLI(t, "", "--block", "database", "test/config.json")
 		if res.exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
 		}
-		want := "\"database\":\n    \"host\": \"localhost\"\n    \"port\": 5432\n    \"credentials\":\n" +
-			"        \"user\": \"admin\"\n        \"password\": \"secret123\"\n"
+		want := "database:\n    host: localhost\n    port: 5432\n    credentials:\n" +
+			"        user: admin\n        password: secret123\n"
 		if res.stdout != want {
 			t.Errorf("stdout = %q, want %q", res.stdout, want)
 		}
@@ -201,8 +201,8 @@ func TestCLIFlowAndBlockStyle(t *testing.T) {
 		if res.exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
 		}
-		want := "\"database\":\n    \"host\": \"localhost\"\n    \"port\": 5432\n    \"credentials\":\n" +
-			"        \"user\": \"admin\"\n        \"password\": \"secret123\"\n"
+		want := "database:\n    host: localhost\n    port: 5432\n    credentials:\n" +
+			"        user: admin\n        password: secret123\n"
 		if res.stdout != want {
 			t.Errorf("stdout = %q, want %q", res.stdout, want)
 		}
