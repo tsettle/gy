@@ -19,6 +19,10 @@ import (
 
 var debug = flag.Bool("debug", false, "Enable debug mode")
 
+// buildVersion is set at build time via -ldflags "-X main.buildVersion=vX.Y.Z"
+// (see .github/workflows/release.yml). Local `go build` leaves it as "dev".
+var buildVersion = "dev"
+
 func main() {
 	// Flag declarations
 	trim := flag.Bool("trim", false, "Return only the matched node, not full path")
@@ -26,12 +30,12 @@ func main() {
 	list := flag.Bool("list", false, "List keys/items under the specified path")
 	listShort := flag.Bool("l", false, "List keys/items (short flag)")
 	depth := flag.Int("depth", 1, "Maximum depth for list (default: 1)")
-	version := flag.Bool("V", false, "Show version information")
+	showVersion := flag.Bool("V", false, "Show version information")
 
 	flag.Parse()
 
-	if *version {
-		fmt.Println("gy version 0.0.5")
+	if *showVersion {
+		fmt.Printf("gy version %s\n", buildVersion)
 		os.Exit(0)
 	}
 

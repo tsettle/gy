@@ -1,5 +1,7 @@
 # gy - grep for YAML
 
+[![CI](https://github.com/tsettle/gy/actions/workflows/ci.yml/badge.svg)](https://github.com/tsettle/gy/actions/workflows/ci.yml)
+
 A fast, lightweight command-line tool for extracting, exploring, and navigating YAML documents.
 
 ## Features
@@ -11,6 +13,8 @@ A fast, lightweight command-line tool for extracting, exploring, and navigating 
 - ⚡ **Fast** - Single binary, minimal overhead
 
 ## Installation
+
+Download a prebuilt binary from the [releases page](https://github.com/tsettle/gy/releases) (Linux, macOS, and Windows; amd64 and arm64), or build it yourself:
 
 ```bash
 git clone https://github.com/tsettle/gy

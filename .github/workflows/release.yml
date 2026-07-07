@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build release binaries
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          version="${GITHUB_REF_NAME}"
+
+          targets=(
+            "linux amd64"
+            "linux arm64"
+            "darwin amd64"
+            "darwin arm64"
+            "windows amd64"
+          )
+
+          for target in "${targets[@]}"; do
+            read -r goos goarch <<< "$target"
+            name="gy-${version}-${goos}-${goarch}"
+            bin="gy"
+            [ "$goos" = "windows" ] && bin="gy.exe"
+
+            echo "Building ${name}"
+            mkdir -p "build/${name}"
+            GOOS="$goos" GOARCH="$goarch" go build -ldflags "-s -w -X main.buildVersion=${version}" -o "build/${name}/${bin}" .
+
+            if [ "$goos" = "windows" ]; then
+              (cd "build/${name}" && zip -q "../../dist/${name}.zip" "${bin}")
+            else
+              tar -czf "dist/${name}.tar.gz" -C "build/${name}" "${bin}"
+            fi
+          done
+
+          (cd dist && sha256sum * > checksums.txt)
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          generate_release_notes: true

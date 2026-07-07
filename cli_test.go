@@ -24,7 +24,10 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(dir)
 
 	binPath = filepath.Join(dir, "gy")
-	build := exec.Command("go", "build", "-o", binPath, ".")
+	// Pin buildVersion to a fixed value so TestCLIFlagsAndVersion doesn't need
+	// updating on every release tag - it's testing the -V flag mechanism, not
+	// the current version number.
+	build := exec.Command("go", "build", "-ldflags", "-X main.buildVersion=test", "-o", binPath, ".")
 	build.Stdout = os.Stdout
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
@@ -182,8 +185,8 @@ func TestCLIFlagsAndVersion(t *testing.T) {
 	if res.exitCode != 0 {
 		t.Fatalf("exit code = %d, want 0", res.exitCode)
 	}
-	if res.stdout != "gy version 0.0.5\n" {
-		t.Errorf("stdout = %q, want %q", res.stdout, "gy version 0.0.5\n")
+	if res.stdout != "gy version test\n" {
+		t.Errorf("stdout = %q, want %q", res.stdout, "gy version test\n")
 	}
 }
 
