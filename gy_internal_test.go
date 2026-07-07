@@ -220,6 +220,75 @@ func TestWrapInPath(t *testing.T) {
 			t.Errorf("wrapInPath with unparseable index should return the extracted node unchanged")
 		}
 	})
+
+	t.Run("reconstructed ancestors inherit the source's flow style", func(t *testing.T) {
+		// JSON is valid YAML flow syntax, and yaml.v3 records that per-node
+		// (Node.Style). wrapInPath used to always fabricate block-style
+		// wrapper nodes, so extracting from a JSON source reverted to block
+		// YAML. It should now look up the original node at each ancestor
+		// path and match its style, so JSON in stays JSON-shaped out.
+		jsonRoot := mustParse(t, `{"database": {"host": "localhost", "tags": ["a", "b"]}}`)
+
+		extracted := extractPath(jsonRoot, "database.host")
+		wrapped := wrapInPath(jsonRoot, "database.host", extracted)
+		got := marshal(t, wrapped)
+		want := "{\"database\": {\"host\": \"localhost\"}}\n"
+		if got != want {
+			t.Errorf("wrapInPath(database.host) on JSON source =\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	t.Run("reconstructed array ancestor inherits flow style", func(t *testing.T) {
+		jsonRoot := mustParse(t, `{"database": {"tags": ["a", "b"]}}`)
+
+		extracted := extractPath(jsonRoot, "database.tags[1]")
+		wrapped := wrapInPath(jsonRoot, "database.tags[1]", extracted)
+		got := marshal(t, wrapped)
+		want := "{\"database\": {\"tags\": [\"b\"]}}\n"
+		if got != want {
+			t.Errorf("wrapInPath(database.tags[1]) on JSON source =\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	t.Run("block-style source still reconstructs as block style", func(t *testing.T) {
+		// Regression check: the style-inheritance lookup shouldn't change
+		// behavior for ordinary block YAML, which is the common case.
+		extracted := extractPath(root, "app.name")
+		wrapped := wrapInPath(root, "app.name", extracted)
+		got := marshal(t, wrapped)
+		want := "app:\n    name: MyApp\n"
+		if got != want {
+			t.Errorf("wrapInPath(app.name) on block source =\n%q\nwant:\n%q", got, want)
+		}
+	})
+}
+
+func TestForceStyle(t *testing.T) {
+	t.Run("forces flow style throughout a block-style tree", func(t *testing.T) {
+		root := mustParse(t, sampleYAML)
+		target := extractPath(root, "database")
+		forceStyle(target, yaml.FlowStyle)
+		got := marshal(t, target)
+		want := "{host: localhost, port: 5432, credentials: {user: admin, password: secret}}\n"
+		if got != want {
+			t.Errorf("forceStyle(flow) =\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	t.Run("forces block style throughout a flow-style tree", func(t *testing.T) {
+		jsonRoot := mustParse(t, `{"host": "localhost", "port": 5432}`)
+		target := extractPath(jsonRoot, ".")
+		forceStyle(target, 0)
+		got := marshal(t, target)
+		want := "\"host\": \"localhost\"\n\"port\": 5432\n"
+		if got != want {
+			t.Errorf("forceStyle(block) =\n%q\nwant:\n%q", got, want)
+		}
+	})
+
+	t.Run("nil node is a no-op", func(t *testing.T) {
+		forceStyle(nil, yaml.FlowStyle) // must not panic
+	})
 }
 
 func captureStdout(t *testing.T, fn func()) string {

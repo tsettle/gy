@@ -134,6 +134,8 @@ gy [OPTIONS] <path> [filename]
 | `-t, --trim` | Return only the matched node (no path wrapping) |
 | `-l, --list` | List all keys/indices under the path |
 | `--depth N` | Control listing depth (default: 1, use 0 for unlimited) |
+| `-j, --flow` | Force flow-style (`{}`/`[]`) output (mnemonic: json) |
+| `-y, --block` | Force block-style (indented) output (mnemonic: yaml) |
 
 ### Path Syntax
 
@@ -141,6 +143,29 @@ gy [OPTIONS] <path> [filename]
 - **Array indexing**: `path.to.array[0]`
 - **Combined**: `users[0].profile.email`
 - **Root**: `.` or leave empty to reference the entire document
+
+### JSON
+
+JSON is valid YAML flow syntax, so gy reads `.json` files natively - no flag needed:
+
+```bash
+$ gy 'database.host' config.json
+{"database": {"host": "localhost"}}
+```
+
+Output matches the input's style by default: extracting from JSON stays flow-style/JSON-shaped, extracting from block YAML stays block YAML. Override either way with `-j`/`--flow` or `-y`/`--block`:
+
+```bash
+# Turn a block YAML doc into flow-style/JSON-like output
+$ gy -j 'database' config.yml
+{database: {host: localhost, port: 5432}}
+
+# Turn a JSON doc into indented block YAML
+$ gy --block 'database' config.json
+"database":
+    "host": "localhost"
+    "port": 5432
+```
 
 ## Common Patterns
 
@@ -224,7 +249,7 @@ gy -t '.github.workflows.build.jobs.test.steps[0]' ci.yml
 - [ ] **Merge functionality** - `gy --merge target.yml 'path.to.data' source.yml`
 - [ ] **Flat list mode** - Output full paths on single lines for grep compatibility
 - [ ] **Multiple patterns** - `gy 'path1,path2,path3'`
-- [ ] **JSON output** - `gy --json` for cross-format workflows
+- [x] **JSON support** - JSON input works natively; `--flow`/`--block` convert between JSON-like and indented YAML output
 - [ ] **Named lists** - `gy '@name:Deploy web application stack' ansible.yml`
 - [ ] **Key/Value** - Return any paths matching a key and/or value.
 - [ ] **Broken tests** - Fix broken tests then create more broken tests to fix.

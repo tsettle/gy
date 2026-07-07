@@ -139,6 +139,101 @@ func TestCLIRealWorldFixtures(t *testing.T) {
 	}
 }
 
+func TestCLIFlowAndBlockStyle(t *testing.T) {
+	t.Run("extracting from a JSON source preserves JSON's flow style", func(t *testing.T) {
+		res := runCLI(t, "", "database.host", "test/config.json")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "{\"database\": {\"host\": \"localhost\"}}\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("extracting an array element from JSON preserves flow style", func(t *testing.T) {
+		res := runCLI(t, "", "services[1]", "test/config.json")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "{\"services\": [\"api\"]}\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("--flow forces flow-style output on a block YAML source", func(t *testing.T) {
+		res := runCLI(t, "", "--flow", "database", "test/simple.yml")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "{database: {host: localhost, port: 5432, timeout: 30, credentials: {user: admin, password: secret123}}}\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("--block forces block-style output on a JSON source", func(t *testing.T) {
+		res := runCLI(t, "", "--block", "database", "test/config.json")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "\"database\":\n    \"host\": \"localhost\"\n    \"port\": 5432\n    \"credentials\":\n" +
+			"        \"user\": \"admin\"\n        \"password\": \"secret123\"\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("-j short flag behaves like --flow", func(t *testing.T) {
+		res := runCLI(t, "", "-j", "database", "test/simple.yml")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "{database: {host: localhost, port: 5432, timeout: 30, credentials: {user: admin, password: secret123}}}\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("-y short flag behaves like --block", func(t *testing.T) {
+		res := runCLI(t, "", "-y", "database", "test/config.json")
+		if res.exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr=%q", res.exitCode, res.stderr)
+		}
+		want := "\"database\":\n    \"host\": \"localhost\"\n    \"port\": 5432\n    \"credentials\":\n" +
+			"        \"user\": \"admin\"\n        \"password\": \"secret123\"\n"
+		if res.stdout != want {
+			t.Errorf("stdout = %q, want %q", res.stdout, want)
+		}
+	})
+
+	t.Run("--flow and --block together is an error on stderr", func(t *testing.T) {
+		res := runCLI(t, "", "--flow", "--block", "database", "test/simple.yml")
+		if res.exitCode != 1 {
+			t.Errorf("exit code = %d, want 1", res.exitCode)
+		}
+		if res.stdout != "" {
+			t.Errorf("stdout = %q, want empty", res.stdout)
+		}
+		want := "Error: --flow/-j and --block/-y are mutually exclusive\n"
+		if res.stderr != want {
+			t.Errorf("stderr = %q, want %q", res.stderr, want)
+		}
+	})
+
+	t.Run("mixing the long and short forms is still an error", func(t *testing.T) {
+		res := runCLI(t, "", "-j", "-y", "database", "test/simple.yml")
+		if res.exitCode != 1 {
+			t.Errorf("exit code = %d, want 1", res.exitCode)
+		}
+		want := "Error: --flow/-j and --block/-y are mutually exclusive\n"
+		if res.stderr != want {
+			t.Errorf("stderr = %q, want %q", res.stderr, want)
+		}
+	})
+}
+
 func TestCLIStdinAndPiping(t *testing.T) {
 	t.Run("reads from stdin when only a pattern is given", func(t *testing.T) {
 		simple, err := os.ReadFile("test/simple.yml")
@@ -199,7 +294,7 @@ func TestCLIErrorHandling(t *testing.T) {
 		if res.stdout != "" {
 			t.Errorf("stdout = %q, want empty (usage error belongs on stderr)", res.stdout)
 		}
-		want := "Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]\n"
+		want := "Usage: gy [--trim|-t] [--list|-l] [--depth N] [--flow|-j] [--block|-y] [pattern] [filename]\n"
 		if res.stderr != want {
 			t.Errorf("stderr = %q, want %q", res.stderr, want)
 		}

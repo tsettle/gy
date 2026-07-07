@@ -31,6 +31,10 @@ func main() {
 	listShort := flag.Bool("l", false, "List keys/items (short flag)")
 	depth := flag.Int("depth", 1, "Maximum depth for list (default: 1)")
 	showVersion := flag.Bool("V", false, "Show version information")
+	flow := flag.Bool("flow", false, "Force flow-style ({}/[]) output, e.g. for JSON")
+	flowShort := flag.Bool("j", false, "Force flow-style output (short flag, mnemonic: json)")
+	block := flag.Bool("block", false, "Force block-style (indented) output")
+	blockShort := flag.Bool("y", false, "Force block-style output (short flag, mnemonic: yaml)")
 
 	flag.Parse()
 
@@ -41,11 +45,18 @@ func main() {
 
 	useTrim := *trim || *trimShort
 	useList := *list || *listShort
+	useFlow := *flow || *flowShort
+	useBlock := *block || *blockShort
 	maxDepth := *depth
+
+	if useFlow && useBlock {
+		fmt.Fprintln(os.Stderr, "Error: --flow/-j and --block/-y are mutually exclusive")
+		os.Exit(1)
+	}
 
 	args := flag.Args()
 	if len(args) > 2 {
-		fmt.Fprintln(os.Stderr, "Usage: gy [--trim|-t] [--list|-l] [--depth N] [pattern] [filename]")
+		fmt.Fprintln(os.Stderr, "Usage: gy [--trim|-t] [--list|-l] [--depth N] [--flow|-j] [--block|-y] [pattern] [filename]")
 		os.Exit(1)
 	}
 
@@ -115,6 +126,12 @@ func main() {
 		result = wrapInPath(&node, pattern, extracted)
 	}
 
+	if useFlow {
+		forceStyle(result, yaml.FlowStyle)
+	} else if useBlock {
+		forceStyle(result, 0)
+	}
+
 	output, _ := yaml.Marshal(result)
 	fmt.Print(string(output))
 }
@@ -131,6 +148,12 @@ func wrapInPath(root *yaml.Node, pattern string, extracted *yaml.Node) *yaml.Nod
 	var current *yaml.Node = extracted
 	for i := len(parts) - 1; i >= 0; i-- {
 		part := parts[i]
+		// The node being reconstructed at this level originally lived at
+		// parts[:i] in the source document - look it up so the rebuilt
+		// wrapper matches its original flow/block style (e.g. so extracting
+		// from a JSON source keeps looking like JSON) instead of always
+		// defaulting to block style.
+		parent := ancestorNodeAt(root, parts[:i])
 
 		// Handle array indexes like "[0]"
 		if len(part) > 0 && part[0] == '[' && part[len(part)-1] == ']' {
@@ -143,28 +166,76 @@ func wrapInPath(root *yaml.Node, pattern string, extracted *yaml.Node) *yaml.Nod
 				// If we can't parse the index, just return the extracted node
 				return extracted
 			}
-			current = &yaml.Node{
+			seqNode := &yaml.Node{
 				Kind:    yaml.SequenceNode,
 				Content: []*yaml.Node{current},
 			}
+			if parent != nil {
+				seqNode.Style = parent.Style
+			}
+			current = seqNode
 		} else {
-			// Mapping node - wrap in map
+			keyNode := &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: part,
+				Tag:   "!!str",
+			}
+			if origKey := findMapKey(parent, part); origKey != nil {
+				keyNode.Style = origKey.Style
+			}
 			mapNode := &yaml.Node{
-				Kind: yaml.MappingNode,
-				Content: []*yaml.Node{
-					{
-						Kind:  yaml.ScalarNode,
-						Value: part,
-						Tag:   "!!str",
-					},
-					current,
-				},
+				Kind:    yaml.MappingNode,
+				Content: []*yaml.Node{keyNode, current},
+			}
+			if parent != nil {
+				mapNode.Style = parent.Style
 			}
 			current = mapNode
 		}
 	}
 
 	return current
+}
+
+// ancestorNodeAt returns the original node found at the given path prefix in
+// root, unwrapping the document node so callers get the actual value node
+// (and its real Style) rather than the always-block DocumentNode wrapper.
+func ancestorNodeAt(root *yaml.Node, parts []string) *yaml.Node {
+	node := walkParts(root, parts)
+	for node != nil && node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
+	}
+	return node
+}
+
+// findMapKey returns the original key scalar node named key within mapNode,
+// so a reconstructed key can inherit its original quoting style.
+func findMapKey(mapNode *yaml.Node, key string) *yaml.Node {
+	if mapNode == nil || mapNode.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(mapNode.Content); i += 2 {
+		if mapNode.Content[i].Value == key {
+			return mapNode.Content[i]
+		}
+	}
+	return nil
+}
+
+// forceStyle recursively overrides the flow/block style of every mapping and
+// sequence node in the tree, letting --flow/--block override whatever style
+// wrapInPath inherited from the source document. Scalar nodes are left
+// alone; yaml.Marshal already quotes them correctly for their context.
+func forceStyle(node *yaml.Node, style yaml.Style) {
+	if node == nil {
+		return
+	}
+	if node.Kind == yaml.MappingNode || node.Kind == yaml.SequenceNode {
+		node.Style = style
+	}
+	for _, child := range node.Content {
+		forceStyle(child, style)
+	}
 }
 
 func extractPath(node *yaml.Node, pattern string) *yaml.Node {
@@ -176,7 +247,13 @@ func extractPath(node *yaml.Node, pattern string) *yaml.Node {
 		return node
 	}
 
-	parts := splitPath(pattern)
+	return walkParts(node, splitPath(pattern))
+}
+
+// walkParts walks node following pre-split path parts. It's the shared core
+// of extractPath, also used by wrapInPath to look up an ancestor's original
+// node (and thus its original flow/block style) when reconstructing it.
+func walkParts(node *yaml.Node, parts []string) *yaml.Node {
 	current := node
 
 	for partIndex := 0; partIndex < len(parts); {
